@@ -1,6 +1,6 @@
 use crate::{
-    Client, ClipboardContent, DownloadedImage, Error, Event, Group, ReceivedClipboard, ReceivedId,
-    Result, cos::MAX_IMAGE_BYTES, storage::private_dir,
+    Client, ClipboardContent, ClipboardInfo, DownloadedImage, Error, Event, Group,
+    ReceivedClipboard, ReceivedId, Result, cos::MAX_IMAGE_BYTES, storage::private_dir,
 };
 use std::{
     fs::{self, File},
@@ -41,6 +41,38 @@ impl Client {
                 None => return Ok(None),
             }
         }
+    }
+    /// Read-only view of the server's latest clipboard value and why it would or would not be
+    /// delivered. For diagnostics; it never changes receive state.
+    pub async fn inspect_clipboard(&self) -> Result<ClipboardInfo> {
+        let mut session = self.session().await?;
+        let own = session.store.state.uin;
+        let now_ms = session.timestamp()?;
+        let wire_group = session.group(3).await?.ok_or(Error::NotPaired)?;
+        let group_id = wire_group.group_id.unwrap_or(0);
+        let consumed = session
+            .store
+            .state
+            .consumed
+            .get(&group_id)
+            .copied()
+            .unwrap_or(0);
+        let message = wire_group.clipboard.as_ref();
+        let expire_at = message.and_then(|m| m.expire_at).unwrap_or(0);
+        let from_uin = message.and_then(|m| m.from_uin).unwrap_or(0);
+        let version = message.and_then(|m| m.version).unwrap_or(0);
+        Ok(ClipboardInfo {
+            has_message: message.is_some(),
+            version,
+            from_uin,
+            kind: message.and_then(|m| m.r#type).unwrap_or(0),
+            expire_at,
+            now_ms,
+            consumed,
+            from_self: from_uin == own,
+            expired: expire_at.saturating_mul(1000) <= now_ms as u64,
+            already_consumed: version <= consumed,
+        })
     }
     async fn poll_step(&self, receive: &mut ReceiveState) -> Result<Option<Event>> {
         {

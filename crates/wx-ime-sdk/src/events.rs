@@ -62,3 +62,18 @@ pub struct SendReceipt {
     pub version: u64,
     pub trace_id: String,
 }
+
+/// Metadata of the server's latest clipboard value and the reasons it may be skipped.
+#[derive(Debug, Clone, Serialize)]
+pub struct ClipboardInfo {
+    pub has_message: bool,
+    pub version: u64,
+    pub from_uin: u64,
+    pub kind: u32,
+    pub expire_at: u64,
+    pub now_ms: i64,
+    pub consumed: u64,
+    pub from_self: bool,
+    pub expired: bool,
+    pub already_consumed: bool,
+}

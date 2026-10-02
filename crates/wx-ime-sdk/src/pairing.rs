@@ -233,7 +233,7 @@ impl PairingSession {
                         self.cancelled = true;
                         Ok(PairingUpdate::Cancelled)
                     }
-                    BindState::Unknown(_) => Err(Error::Invalid("unknown bind transaction state")),
+                    BindState::Unknown(state) => Err(Error::UnknownBindState(state)),
                 }
             }
         }

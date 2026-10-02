@@ -14,7 +14,8 @@ use std::{
 };
 use tokio::time::{sleep, timeout};
 use wx_ime_sdk::{
-    Client, ClipboardContent, Error, FileReceiveOptions, FileTransferProgress, PairingCode,
+    Client, ClipboardContent, ClipboardInfo, Error, FileReceiveOptions, FileTransferProgress,
+    PairingCode,
 };
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -43,7 +44,18 @@ pub async fn pair(client: &Client, code: &str, json: bool) -> Result<()> {
         // Keep the original error if the remote cancellation also fails.
         let _ = pairing.cancel().await;
     }
-    let (group, peer) = result?;
+    let (group, peer) = match result {
+        Ok(paired) => paired,
+        Err(error @ Error::UnknownBindState(_)) => {
+            return Err(format!(
+                "{error}. This usually means this device is already paired with that official \
+                 device (or the code was already used). Run `wxc devices` to check; to join a different \
+                 official device, run `wxc pair CODE --reset`."
+            )
+            .into());
+        }
+        Err(error) => return Err(error.into()),
+    };
     let human = format!(
         "Paired with {}.\nThis device: {} (Uin {})",
         peer.name, local.name, local.uin
@@ -169,6 +181,25 @@ pub async fn send_file(
     Ok(())
 }
 
+/// Why the server's latest clipboard value was not delivered.
+fn explain(info: &ClipboardInfo) -> String {
+    let who = format!("version {} from Uin {}", info.version, info.from_uin);
+    if !info.has_message {
+        "The server holds no clipboard value for this group.".into()
+    } else if info.from_self {
+        format!("The latest value ({who}) was sent by this device.")
+    } else if info.already_consumed {
+        format!("The latest value ({who}) was already received.")
+    } else if info.expired {
+        let ago = (info.now_ms - (info.expire_at as i64) * 1000) / 1000;
+        format!(
+            "The latest value ({who}) expired {ago}s ago; the official app keeps values only for a few minutes, send again and retry quickly."
+        )
+    } else {
+        format!("The latest value ({who}) was not delivered for an unknown reason: {info:?}")
+    }
+}
+
 /// One-shot clipboard pull. Text goes to stdout; images are saved into `output`.
 pub async fn recv_clipboard(
     client: &Client,
@@ -181,6 +212,9 @@ pub async fn recv_clipboard(
         .map_err(|_| "timed out polling the clipboard")??
     else {
         eprintln!("No new clipboard content.");
+        if let Ok(info) = client.inspect_clipboard().await {
+            eprintln!("{}", explain(&info));
+        }
         return Ok(());
     };
     match &received.content {

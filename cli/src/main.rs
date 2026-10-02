@@ -32,8 +32,15 @@ async fn run() -> Result<()> {
         Command::Send(send) => Some(classify(&send.input, send.text, read_stdin)?),
         _ => None,
     };
-    if let Command::Pair { code } = &cli.command {
+    let mut backup = None;
+    if let Command::Pair { code, reset } = &cli.command {
         wx_ime_sdk::PairingCode::parse(code)?;
+        if *reset {
+            backup = fsutil::backup_dir(&state)?;
+            if let Some(path) = &backup {
+                eprintln!("Previous identity kept at {}", path.display());
+            }
+        }
     }
 
     commands::prepare_state(&state)?;
@@ -47,6 +54,15 @@ async fn run() -> Result<()> {
     let result = execute(&client, &cli.command, payload, &state, limit, cli.json).await;
     // Release SDK resources on success, error and timeout alike.
     let shutdown = client.shutdown().await;
+    if let (Err(_), Some(path)) = (&result, &backup) {
+        match fsutil::restore_dir(&state, path) {
+            Ok(()) => eprintln!("Pairing failed; previous identity restored."),
+            Err(error) => eprintln!(
+                "Pairing failed and the previous identity could not be restored ({error}); it is still at {}",
+                path.display()
+            ),
+        }
+    }
     result?;
     shutdown?;
     Ok(())
@@ -61,7 +77,7 @@ async fn execute(
     json: bool,
 ) -> Result<()> {
     match command {
-        Command::Pair { code } => commands::pair(client, code, json).await,
+        Command::Pair { code, .. } => commands::pair(client, code, json).await,
         Command::Devices => commands::devices(client, json).await,
         Command::Send(send) => match payload.expect("classified before opening") {
             Payload::Text(text) => commands::send_text(client, &text, limit, json).await,

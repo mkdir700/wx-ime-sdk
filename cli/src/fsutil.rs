@@ -104,6 +104,35 @@ pub fn private_dir(path: &Path) -> io::Result<()> {
     Ok(())
 }
 
+/// Moves an existing state directory aside to `<dir>.old-<unix seconds>`; `None` if absent.
+pub fn backup_dir(dir: &Path) -> io::Result<Option<PathBuf>> {
+    if !dir.exists() {
+        return Ok(None);
+    }
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs());
+    let mut name = dir.file_name().unwrap_or_default().to_os_string();
+    name.push(format!(".old-{stamp}"));
+    let backup = dir.with_file_name(name);
+    if backup.exists() {
+        return Err(io::Error::new(
+            io::ErrorKind::AlreadyExists,
+            "backup directory already exists",
+        ));
+    }
+    fs::rename(dir, &backup)?;
+    Ok(Some(backup))
+}
+
+/// Undoes `backup_dir`: discards whatever replaced `dir` and moves the backup back.
+pub fn restore_dir(dir: &Path, backup: &Path) -> io::Result<()> {
+    if dir.exists() {
+        fs::remove_dir_all(dir)?;
+    }
+    fs::rename(backup, dir)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -166,5 +195,22 @@ mod tests {
         let b = write_unique(out.path(), "p.png", b"2").unwrap();
         assert_eq!(a.file_name().unwrap(), "p.png");
         assert_eq!(b.file_name().unwrap(), "p (1).png");
+    }
+
+    #[test]
+    fn backup_and_restore_roundtrip() {
+        let root = tempfile::tempdir().unwrap();
+        let state = root.path().join("wxc");
+        assert_eq!(backup_dir(&state).unwrap(), None);
+        fs::create_dir(&state).unwrap();
+        fs::write(state.join("identity"), "old").unwrap();
+        let backup = backup_dir(&state).unwrap().unwrap();
+        assert!(!state.exists());
+        assert_eq!(fs::read_to_string(backup.join("identity")).unwrap(), "old");
+        fs::create_dir(&state).unwrap();
+        fs::write(state.join("identity"), "new").unwrap();
+        restore_dir(&state, &backup).unwrap();
+        assert_eq!(fs::read_to_string(state.join("identity")).unwrap(), "old");
+        assert!(!backup.exists());
     }
 }

@@ -25,7 +25,8 @@ pub use client::{Client, ClientOptions};
 pub use device::{Device, Group, LocalDevice};
 pub use error::{Error, Result};
 pub use events::{
-    ClipboardContent, DownloadedImage, Event, ReceivedClipboard, ReceivedId, SendReceipt,
+    ClipboardContent, ClipboardInfo, DownloadedImage, Event, ReceivedClipboard, ReceivedId,
+    SendReceipt,
 };
 pub use file_receiver::FileReceiver;
 pub use file_rendezvous::FileCode;

@@ -30,6 +30,8 @@ pub enum Error {
     ConfirmationRequired,
     #[error("another pairing session is active")]
     PairingInUse,
+    #[error("pairing returned unexpected server state {0}")]
+    UnknownBindState(u32),
     #[error("pairing code is no longer available")]
     CodeUnavailable,
     #[error("device is not paired")]

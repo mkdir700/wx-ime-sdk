@@ -42,6 +42,11 @@ pub enum Command {
     Pair {
         #[arg(value_name = "CODE")]
         code: String,
+        /// Start over with a fresh identity: the current state directory is kept as a
+        /// backup (restored if pairing fails). Use this to join a different official device
+        /// when this identity is already paired
+        #[arg(long)]
+        reset: bool,
     },
     /// Show this device and the paired devices (Uin)
     Devices,
@@ -117,8 +122,14 @@ mod tests {
     #[test]
     fn pair_takes_one_code() {
         let cli = parse(&["pair", "123456"]).unwrap();
-        assert!(matches!(cli.command, Command::Pair { ref code } if code == "123456"));
+        assert!(
+            matches!(cli.command, Command::Pair { ref code, reset: false } if code == "123456")
+        );
         assert!(parse(&["pair"]).is_err());
+        assert!(matches!(
+            parse(&["pair", "--reset", "123456"]).unwrap().command,
+            Command::Pair { reset: true, .. }
+        ));
     }
 
     #[test]
