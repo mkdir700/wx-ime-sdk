@@ -44,13 +44,24 @@ async fn run() -> Result<()> {
     }
 
     commands::prepare_state(&state)?;
+    let name_file = state.join("device-name");
+    let name = args::device_name(
+        cli.name.clone(),
+        std::fs::read_to_string(&name_file).ok(),
+        state.join("identity.json").exists(),
+        args::random_suffix,
+    );
     let client = tokio::time::timeout(
         limit,
-        Client::open(ClientOptions::new(&state, cli.name.clone())),
+        Client::open(ClientOptions::new(&state, name.clone())),
     )
     .await
     .map_err(|_| "timed out opening the client")??;
 
+    // Remember the accepted name so later commands need no --name.
+    if !name_file.exists() {
+        let _ = std::fs::write(&name_file, &name);
+    }
     let result = execute(&client, &cli.command, payload, &state, limit, cli.json).await;
     // Release SDK resources on success, error and timeout alike.
     let shutdown = client.shutdown().await;

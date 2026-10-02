@@ -67,8 +67,12 @@ stderr；失败时退出码为 1。
 ### 状态目录
 
 身份（私钥、设备 Uin）保存在 `--state DIR`，默认依次取 `$WXC_STATE`、
-`$XDG_CONFIG_HOME/wxc`、`~/.config/wxc`。多次运行之间必须保持该目录和 `--name`（默认
-`wxc`）不变，且同一目录同一时间只运行一个 `wxc`。
+`$XDG_CONFIG_HOME/wxc`、`~/.config/wxc`。同一目录同一时间只运行一个 `wxc`。
+
+设备名（官方应用里显示的名字）在首次创建身份时用 `--name` 指定，例如
+`wxc pair 123456 --name 'My Mac'`，不指定时随机生成 `WXC-XXXX`（4 位随机字符）。名字会记在状态目录的 `device-name` 文件里，之后
+的命令不必再带 `--name`。身份创建后不能改名：用不同的 `--name` 运行会报错，要改名请用
+`wxc pair CODE --reset --name 新名字` 重新创建身份。
 
 ### 重新配对
 

@@ -2,7 +2,9 @@
 use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
 
-pub const DEFAULT_DEVICE_NAME: &str = "wxc";
+pub const DEFAULT_NAME_PREFIX: &str = "WXC-";
+/// Name used by identities created before the name was remembered in the state directory.
+pub const LEGACY_DEVICE_NAME: &str = "wxc";
 
 #[derive(Debug, Parser)]
 #[command(
@@ -17,9 +19,10 @@ pub struct Cli {
     /// Identity directory [default: $WXC_STATE, else <config dir>/wxc]
     #[arg(long, global = true, env = "WXC_STATE", value_name = "DIR")]
     pub state: Option<PathBuf>,
-    /// Device name shown in the official app; must stay the same across runs
-    #[arg(long, global = true, default_value = DEFAULT_DEVICE_NAME)]
-    pub name: String,
+    /// Device name shown in the official app. Set it when pairing; it is remembered in the
+    /// state directory afterwards [default: WXC-<4 random characters>]
+    #[arg(long, global = true, value_name = "NAME")]
+    pub name: Option<String>,
     /// Seconds allowed for opening the client and for non-transfer operations
     #[arg(
         long,
@@ -95,6 +98,45 @@ pub struct RecvArgs {
     /// File mode: local LAN IP the peer can reach [default: auto-detect]
     #[arg(long, value_name = "IP")]
     pub ip: Option<std::net::IpAddr>,
+}
+
+/// Explicit `--name`, else the name remembered in the state directory. An identity created
+/// before names were remembered keeps the old default; a brand-new one gets `WXC-XXXX`.
+pub fn device_name(
+    explicit: Option<String>,
+    remembered: Option<String>,
+    identity_exists: bool,
+    random: impl FnOnce() -> String,
+) -> String {
+    explicit
+        .or_else(|| {
+            remembered
+                .map(|n| n.trim().to_owned())
+                .filter(|n| !n.is_empty())
+        })
+        .unwrap_or_else(|| {
+            if identity_exists {
+                LEGACY_DEVICE_NAME.to_owned()
+            } else {
+                format!("{DEFAULT_NAME_PREFIX}{}", random())
+            }
+        })
+}
+
+/// Four random uppercase letters/digits for the default device name.
+pub fn random_suffix() -> String {
+    use std::hash::{BuildHasher, Hasher};
+    const ALPHABET: &[u8] = b"ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let mut value = std::collections::hash_map::RandomState::new()
+        .build_hasher()
+        .finish();
+    (0..4)
+        .map(|_| {
+            let c = ALPHABET[(value % ALPHABET.len() as u64) as usize] as char;
+            value /= ALPHABET.len() as u64;
+            c
+        })
+        .collect()
 }
 
 /// Resolution order: explicit flag/env, `$XDG_CONFIG_HOME/wxc`, `$HOME/.config/wxc`,
@@ -179,8 +221,30 @@ mod tests {
         ])
         .unwrap();
         assert_eq!(cli.state, Some(PathBuf::from("/s")));
-        assert_eq!((cli.name.as_str(), cli.timeout), ("n", 5));
+        assert_eq!((cli.name.as_deref(), cli.timeout), (Some("n"), 5));
         assert!(parse(&["--timeout", "0", "devices"]).is_err());
+    }
+
+    #[test]
+    fn device_name_precedence() {
+        let some = |s: &str| Some(s.to_owned());
+        let rnd = || "AB12".to_owned();
+        assert_eq!(device_name(some("a"), some("b"), true, rnd), "a");
+        assert_eq!(device_name(None, some(" b\n"), true, rnd), "b");
+        assert_eq!(device_name(None, some("  "), false, rnd), "WXC-AB12");
+        assert_eq!(device_name(None, None, false, rnd), "WXC-AB12");
+        assert_eq!(device_name(None, None, true, rnd), "wxc");
+    }
+
+    #[test]
+    fn random_suffix_shape() {
+        let suffix = random_suffix();
+        assert_eq!(suffix.len(), 4);
+        assert!(
+            suffix
+                .bytes()
+                .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit())
+        );
     }
 
     #[test]
