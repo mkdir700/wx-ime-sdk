@@ -1,0 +1,75 @@
+name: Publish CLI to npm
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing published release tag (e.g. v0.1.0)'
+        type: string
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+      version: ${{ steps.resolve.outputs.version }}
+      dist_tag: ${{ steps.resolve.outputs.dist_tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate published release and immutable source
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag || github.event.release.tag_name }}
+        shell: bash
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?$ ]] || exit 1
+          gh release view "$RELEASE_TAG" --json isDraft,publishedAt --jq 'select(.isDraft == false and .publishedAt != null)' > release.json
+          test -s release.json
+          git fetch --no-tags origin "refs/tags/$RELEASE_TAG"
+          SHA=$(git rev-parse 'FETCH_HEAD^{commit}')
+          git checkout --detach "$SHA"
+          node scripts/npm-package.mjs metadata >> "$GITHUB_OUTPUT"
+          VERSION=$(node scripts/npm-package.mjs metadata | sed -n 's/^version=//p')
+          test "$RELEASE_TAG" = "v$VERSION"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+  build:
+    needs: release
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ needs.release.outputs.sha }}
+  publish:
+    needs: [release, build]
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm install -g npm@latest
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: npm-*
+          path: npm-dist-tarballs
+          merge-multiple: true
+      - name: Publish verified packages (platforms first)
+        env:
+          NODE_AUTH_TOKEN: ''
+          VERSION: ${{ needs.release.outputs.version }}
+          DIST_TAG: ${{ needs.release.outputs.dist_tag }}
+        run: node scripts/npm-publish.mjs

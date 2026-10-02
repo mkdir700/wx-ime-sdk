@@ -7,6 +7,7 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.92"
 publish = false
+license = "Apache-2.0"
 
 [workspace.dependencies]
 wx-ime-protocol = { path = "crates/wx-ime-protocol", version = "0.1.0" }
