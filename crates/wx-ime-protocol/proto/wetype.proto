@@ -1,0 +1,103 @@
+syntax = "proto2";
+package wetype;
+// Field numbers reconstructed from Android 3.5.4 serializers and local captures.
+message Timestamp { optional uint64 milliseconds = 1; }
+message EcdhRequest {
+ optional string public_key = 1;
+ optional string previous_server_key = 2;
+ optional bool need_uin = 3;
+ optional string device_code = 4;
+ optional uint64 uin = 5;
+ optional string uin_token = 6;
+ optional string device_token = 7;
+ optional string device_info = 8;
+ optional string device_name = 9;
+}
+message EcdhResponse {
+ optional int32 status = 1;
+ optional string public_key = 2;
+ optional uint64 key_expiry = 3;
+ optional string gen_uin_token = 4;
+ optional bool flag5 = 5;
+}
+message UinRequest {
+ optional string device_code = 1;
+ optional string server_key = 2;
+ optional uint64 uin = 3;
+ optional string uuid = 4;
+ optional string device_token = 5;
+}
+message UinResponse { optional int32 status = 1; optional uint64 uin = 2; }
+message HeaderItem { optional string key = 1; optional string value = 2; }
+message Header { repeated HeaderItem items = 1; }
+message BaseRequest {
+ optional uint64 uin = 2;
+ optional uint32 subcommand = 3;
+ optional Header header = 4;
+ optional bytes body = 5;
+}
+message BaseResponse { optional int32 field2 = 2; optional bytes body = 6; }
+message Device { optional string name = 1; optional uint32 platform = 2; }
+message CodeRequest { optional uint64 uin = 1; optional uint32 platform = 2; optional Device device = 3; }
+message CodeResponse {
+ optional int32 status = 1;
+ optional string code = 2;
+ optional uint64 field3 = 3;
+ optional uint64 field4 = 4;
+}
+message BindRequest {
+ optional uint64 uin = 1;
+ optional uint32 platform = 2;
+ optional string code = 3;
+ optional Device device = 5;
+}
+message BindResponse {
+ optional int32 status = 1;
+ optional string bind_id = 2;
+ optional uint32 state = 3;
+ optional Device device = 4;
+}
+message FetchBindRequest { optional uint64 uin = 1; optional uint32 platform = 2; optional string bind_id = 3; }
+message FetchBindResponse { optional int32 status = 1; optional uint32 state = 2; }
+// Cmd40: 0=no join request, 1=pending join, 2=code unavailable (observed after release).
+message PollCodeRequest { optional uint64 uin = 1; optional uint32 platform = 2; optional string code = 3; }
+message PollCodeResponse { optional uint32 state = 1; optional string bind_id = 2; optional uint32 field3 = 3; optional Device device = 4; }
+message ConfirmBindResponse { optional int32 status = 1; optional uint64 group_id = 2; optional BoundInfo peer = 3; }
+message EmptyResponse {}
+// ReleaseMatchCodeOrBindReq: observed issuer field3 and own joiner field4 cancellation.
+message ReleaseBindRequest { optional uint64 uin = 1; optional uint32 platform = 2; optional string code = 3; optional string bind_id = 4; }
+message GroupDevice {
+ optional string name = 1;
+ optional uint32 platform = 2;
+ optional uint64 bind_time = 3;
+ optional string client_version = 4;
+ optional bool support_file_transfer = 5;
+ optional string origin_name = 6;
+}
+message BoundInfo { optional uint64 uin = 1; optional GroupDevice device = 2; }
+// GroupInfo.pending_transfer_invite (field 7), present when GroupRequest.filter has bit 64.
+message PendingTransferInvite { optional string transfer_code = 1; optional string device_name = 2; optional uint64 sender_uin = 3; optional int64 send_time = 4; optional uint32 platform = 5; optional uint64 capabilities = 6; }
+message Group { optional uint64 group_id = 1; repeated BoundInfo devices = 2; optional ClipboardMsg clipboard = 3; optional PendingTransferInvite pending_invite = 7; }
+message GroupRequest { optional uint64 uin = 1; optional uint32 platform = 2; optional uint32 filter = 3; optional uint64 clipboard_version = 4; optional string current_transfer_code = 6; }
+message GroupResponse { optional Group group = 1; optional int32 status = 2; optional string device_remark_name = 3; }
+
+message ClipboardMsg { optional uint64 version = 1; optional uint32 type = 2; optional string data = 3; optional uint64 expire_at = 4; optional int64 expiration = 5; optional bytes binary_data = 6; optional uint64 from_uin = 7; optional bytes extra_info = 8; optional string trace_id = 9; }
+message SendClipboardRequest { optional uint64 uin = 1; optional uint32 platform = 2; optional ClipboardMsg msg = 3; optional uint64 group_id = 4; }
+message SendClipboardResponse { optional int32 status = 1; optional uint64 version = 2; }
+message CosRequest { optional uint32 upload_biz = 1; optional string ext = 2; optional uint32 method = 3; }
+message CosResponse { optional string bucket = 1; optional string key = 2; optional string region = 3; optional string download_url = 4; optional string upload_url = 5; optional uint64 size_limit_kib = 6; optional string field7 = 7; optional string field8 = 8; }
+
+// P2P file rendezvous, statically reconstructed and actual-service validated.
+message FileCodeRequest { optional bytes ca=1; optional bytes link=2; optional string name=3; optional uint64 capabilities=4; }
+message FileCodeResponse { optional int32 status=1; optional string code=2; optional uint64 expire_at=3; optional uint64 expiration=4; optional string url=5; optional string image=6; }
+enum FilePeerState { FILE_PEER_STATE_NONE=0; FILE_PEER_STATE_CANCELED=1; FILE_PEER_STATE_REJECTED=2; FILE_PEER_STATE_FILE_READY=3; FILE_PEER_STATE_FILE_READY_THEN_CANCEL=4; }
+message FilePeer {optional uint64 uin=1;optional bytes ca=2;optional bytes link=3;optional string public_ip=4;optional bool ready=5;optional bytes grpc=6;optional bytes dispatch=7;optional string biz_uin=8;optional uint32 platform=9;optional bytes direct=10;optional FilePeerState state=11;optional string name=12;optional uint64 capabilities=13;}
+message FileJoinRequest {optional string code=1;optional bytes ca=2;optional bytes link=3;optional bytes grpc=4;optional bytes direct=5;optional FilePeerState state=6;optional uint64 capabilities=7;}
+message FilePeerResponse {optional int32 status=1;optional FilePeer peer=2;optional uint64 expire_at=3;optional uint64 expiration=4;optional bytes dispatch=5;optional bytes peer_dispatch=6;}
+message FilePeerRequest {optional string code=1;}
+
+// Native application business messages carried by Flurry action200.
+message FileControlEnvelope {optional uint64 id=1;optional int32 command=2;optional bytes data=3;}
+
+// Linked-device transfer invitation, command77; capabilities is field5 (not73's field4).
+message FileInviteRequest {optional uint64 peer_uin=1;optional bytes ca=2;optional bytes link=3;optional string name=4;optional uint64 capabilities=5;}

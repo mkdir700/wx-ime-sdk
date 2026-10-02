@@ -1,0 +1,26 @@
+[package]
+name = "wx-ime-protocol"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+description = "Evidence-based WeType packet codec, crypto and transport formats"
+
+[features]
+default = []
+vendored-openssl = ["openssl/vendored"]
+
+[dependencies]
+base64.workspace = true
+hex.workspace = true
+openssl.workspace = true
+prost.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+snap.workspace = true
+thiserror.workspace = true
+url.workspace = true
+zeroize.workspace = true
+
+[build-dependencies]
+prost-build = "0.14"

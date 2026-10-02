@@ -1,0 +1,37 @@
+[package]
+name = "wx-ime-sdk"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+description = "Async WeType client for independent device pairing and clipboard exchange"
+
+[features]
+default = []
+vendored-openssl = ["openssl/vendored", "wx-ime-protocol/vendored-openssl"]
+
+[dependencies]
+wx-ime-protocol.workspace = true
+blake3.workspace = true
+fs2.workspace = true
+hex.workspace = true
+openssl.workspace = true
+prost.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+uuid.workspace = true
+zeroize.workspace = true
+tokio-stream.workspace = true
+tonic.workspace = true
+tonic-prost.workspace = true
+
+[build-dependencies]
+tonic-prost-build = "0.14"
+wx-ime-protocol.workspace = true
+prost.workspace = true
+prost-types.workspace = true
