@@ -1,5 +1,5 @@
 //! Ephemeral independent TLS identity for a single file rendezvous.
-use crate::file_transport::{ClientCredentials, ServerCredentials};
+use crate::file::transport::{ClientCredentials, ServerCredentials};
 use openssl::{
     asn1::{Asn1Integer, Asn1Time},
     bn::BigNum,

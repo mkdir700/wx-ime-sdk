@@ -1,7 +1,7 @@
 //! A receiver owns control processing even while its host is idle.
 use crate::{
     Error, Result,
-    file_transport::{FileConnection, FileError, FileListener, ReceivedFile},
+    file::transport::{FileConnection, FileError, FileListener, ReceivedFile},
 };
 use std::{net::SocketAddr, sync::Arc};
 use tokio::{sync::watch, task::JoinHandle};
@@ -124,7 +124,7 @@ async fn run(listener: FileListener, updates: &watch::Sender<State>) -> State {
     updates.send_replace(State::Connected(connection.clone()));
     loop {
         match connection.next_message().await {
-            Ok(message) if crate::files::peer_disconnected(&message.payload) => {
+            Ok(message) if crate::file::transfer::peer_disconnected(&message.payload) => {
                 return State::PeerDisconnected(connection);
             }
             Ok(_) => {}

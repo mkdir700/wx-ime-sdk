@@ -1,9 +1,9 @@
 //! Paired-peer file invitations, owned connection lifetime and host-facing tasks.
 use crate::{
     Client, Error, FileReceiver, Result,
-    file_identity::FileIdentity,
-    file_rendezvous::{self, FileCode, FileOffer},
-    file_transport::{FileConnection, FileListener, FileReceipt},
+    file::identity::FileIdentity,
+    file::rendezvous::{self, FileCode, FileOffer},
+    file::transport::{FileConnection, FileListener, FileReceipt},
 };
 use prost::Message;
 use std::{
@@ -144,7 +144,7 @@ impl Client {
         let peer = tokio::select! {
             biased;
             () = cancel.cancelled() => return Err(Error::Canceled),
-            result = file_rendezvous::join(self, peer_uin, code, &identity, &options.advertised_ips, &addresses) => result?,
+            result = rendezvous::join(self, peer_uin, code, &identity, &options.advertised_ips, &addresses) => result?,
         };
         if peer.capabilities & 2 == 0 {
             return Err(Error::Invalid("peer lacks file range ACK capability"));
@@ -213,7 +213,7 @@ async fn send(
                         return Ok(connection);
                     }
                 }
-                return Err(Error::File(crate::file_transport::FileError::Transport));
+                return Err(Error::File(crate::file::transport::FileError::Transport));
             }
             tokio::time::sleep(Duration::from_millis(250)).await;
         }

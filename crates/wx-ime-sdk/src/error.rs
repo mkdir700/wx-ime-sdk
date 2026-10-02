@@ -1,7 +1,7 @@
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("file transport operation failed: {0}")]
-    File(#[from] crate::file_transport::FileError),
+    File(#[from] crate::file::FileError),
     #[error("operation canceled")]
     Canceled,
     #[error("peer rejected the file transfer")]

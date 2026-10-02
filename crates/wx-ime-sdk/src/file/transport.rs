@@ -97,6 +97,7 @@ struct ControlCommand {
     reply: oneshot::Sender<Result<()>>,
 }
 /// Raw native business message. Unknown native metadata is preserved.
+#[allow(dead_code)] // field7/field8 are protocol metadata not yet consumed by the SDK
 pub struct FileMessage {
     pub payload: Vec<u8>,
     pub field7: Option<u64>,
@@ -109,6 +110,9 @@ impl std::fmt::Debug for FileMessage {
             .finish_non_exhaustive()
     }
 }
+// `control`/`wire_id` back `send_message`, the outgoing native control path, which the SDK
+// does not need yet but keeps complete for the ACK handling in the transfer actor.
+#[allow(dead_code)]
 pub struct FileConnection {
     control: mpsc::Sender<ControlCommand>,
     messages: tokio::sync::Mutex<mpsc::Receiver<FileMessage>>,
@@ -177,6 +181,7 @@ impl FileConnection {
     }
 
     /// Returns after the peer acknowledges the native business message.
+    #[allow(dead_code)]
     pub async fn send_message(&self, payload: &[u8]) -> Result<()> {
         if payload.len() > MAX_CONTROL {
             return Err(FileError::Invalid("control payload limit"));
@@ -214,9 +219,6 @@ impl FileConnection {
     async fn failure(&self) -> FileError {
         task::failure(self.terminal.clone()).await
     }
-    pub async fn send_file(&self, path: impl AsRef<Path>) -> Result<FileReceipt> {
-        self.start_file(path).await?.wait().await
-    }
     pub async fn start_file(&self, path: impl AsRef<Path>) -> Result<FileUpload> {
         let prepare = async {
             let permit = self
@@ -251,9 +253,6 @@ impl FileConnection {
             result = prepare => result,
         }
     }
-    pub async fn next_file(&self) -> Result<ReceivedFile> {
-        self.next_download().await?.wait().await
-    }
     pub async fn next_download(&self) -> Result<FileDownload> {
         match self.received.lock().await.recv().await {
             Some(file) => Ok(file),
@@ -278,27 +277,6 @@ pub struct FileListener {
     server: Option<JoinHandle<()>>,
 }
 impl FileListener {
-    pub async fn bind(
-        address: SocketAddr,
-        credentials: ServerCredentials,
-        download_dir: impl AsRef<Path>,
-    ) -> Result<Self> {
-        let listener = tokio::net::TcpListener::bind(address).await?;
-        Self::from_listener(listener, credentials, download_dir).await
-    }
-    pub(crate) async fn from_listener(
-        listener: tokio::net::TcpListener,
-        credentials: ServerCredentials,
-        download_dir: impl AsRef<Path>,
-    ) -> Result<Self> {
-        Self::from_listener_scoped(
-            listener,
-            credentials,
-            download_dir,
-            tokio_util::sync::CancellationToken::new(),
-        )
-        .await
-    }
     pub(crate) async fn from_listener_scoped(
         listener: tokio::net::TcpListener,
         credentials: ServerCredentials,

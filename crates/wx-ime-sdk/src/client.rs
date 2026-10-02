@@ -33,8 +33,8 @@ pub(crate) struct Inner {
     pub closed: AtomicBool,
     pub lifetime: tokio_util::sync::CancellationToken,
     pub pairing: AtomicBool,
-    pub cos: crate::cos::Cos,
-    pub receive: Mutex<crate::receive::ReceiveState>,
+    pub cos: crate::clipboard::cos::Cos,
+    pub receive: Mutex<crate::clipboard::ReceiveState>,
 }
 #[derive(Clone)]
 pub struct Client {
@@ -43,7 +43,7 @@ pub struct Client {
 impl Client {
     pub async fn open(options: ClientOptions) -> Result<Self> {
         let store = Store::open(options.state_dir, options.device_name)?;
-        let cos = crate::cos::Cos::new(options.capture_dir.clone())?;
+        let cos = crate::clipboard::cos::Cos::new(options.capture_dir.clone())?;
         let session = Session::open(store, options.capture_dir).await?;
         Ok(Self {
             inner: Arc::new(Inner {
@@ -52,7 +52,7 @@ impl Client {
                 lifetime: tokio_util::sync::CancellationToken::new(),
                 pairing: AtomicBool::new(false),
                 cos,
-                receive: Mutex::new(crate::receive::ReceiveState::default()),
+                receive: Mutex::new(crate::clipboard::ReceiveState::default()),
             }),
         })
     }

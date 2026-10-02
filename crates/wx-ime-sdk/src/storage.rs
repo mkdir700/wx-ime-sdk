@@ -207,7 +207,7 @@ impl Store {
                     || !image.sha256.bytes().all(|b| b.is_ascii_hexdigit())
                     || image.path != expected
                     || image.bytes == 0
-                    || image.bytes > crate::cos::MAX_IMAGE_BYTES
+                    || image.bytes > crate::clipboard::cos::MAX_IMAGE_BYTES
                 {
                     return Err(Error::Invalid("pending image cache path/size"));
                 }

@@ -1,6 +1,6 @@
 use crate::{
     Client, ClipboardContent, ClipboardInfo, DownloadedImage, Error, Event, Group,
-    ReceivedClipboard, ReceivedId, Result, cos::MAX_IMAGE_BYTES, storage::private_dir,
+    ReceivedClipboard, ReceivedId, Result, clipboard::cos::MAX_IMAGE_BYTES, storage::private_dir,
 };
 use std::{
     fs::{self, File},

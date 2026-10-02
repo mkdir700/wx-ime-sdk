@@ -1,6 +1,6 @@
 //! Authenticated P2P file code and peer certificate/address exchange.
 //! Application control handshake and transfer cancellation are separate from rendezvous.
-use crate::{Client, Error, Result, error::business, file_identity::FileIdentity};
+use crate::{Client, Error, Result, error::business, file::identity::FileIdentity};
 use serde::{Deserialize, Serialize};
 use std::{
     net::{IpAddr, SocketAddr},
@@ -57,6 +57,8 @@ pub struct GrpcInfo {
     pub available_nets: AvailableNets,
 }
 /// Sensitive rendezvous material intentionally has no Debug implementation.
+// Decoded peer metadata is kept complete even where the SDK does not read every field yet.
+#[allow(dead_code)]
 pub struct FilePeer {
     pub uin: u64,
     pub ca: Vec<u8>,
@@ -130,9 +132,6 @@ async fn paired(client: &Client, peer_uin: u64) -> Result<()> {
     Ok(())
 }
 impl FileOffer {
-    pub async fn issue(client: &Client, peer_uin: u64, lan: &[IpAddr]) -> Result<Self> {
-        Self::create(client, peer_uin, lan, false).await
-    }
     /// Requests a transfer invitation for an already paired device (command77).
     pub async fn invite(client: &Client, peer_uin: u64, lan: &[IpAddr]) -> Result<Self> {
         Self::create(client, peer_uin, lan, true).await
