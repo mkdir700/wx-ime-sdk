@@ -57,6 +57,13 @@ wxc [--state DIR] [--name NAME] [--timeout SECONDS] <COMMAND>
 （图片）和 `recv -f` 改为在 stdout 输出 JSON。`recv` 收到的文本始终原样输出。进度和诊断信息写
 stderr；失败时退出码为 1。
 
+### 局域网地址
+
+文件传输需要告诉对端本机的局域网地址。未指定 `--ip` 时，`wxc` 枚举物理网卡的 IPv4 地址并全部
+公布（对端会逐个尝试），自动排除代理/VPN 的虚拟网卡（`utun*`、`tun*`、`docker*` 等）以及
+`198.18.0.0/15`（Clash/Surge 的 fake-IP）、`100.64.0.0/10`、链路本地地址。若仍选错，用
+`--ip` 手动指定。
+
 ### 状态目录
 
 身份（私钥、设备 Uin）保存在 `--state DIR`，默认依次取 `$WXC_STATE`、

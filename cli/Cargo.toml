@@ -16,6 +16,7 @@ vendored-openssl = ["wx-ime-sdk/vendored-openssl"]
 
 [dependencies]
 wx-ime-sdk.workspace = true
+if-addrs = "0.13"
 clap = { version = "4", features = ["derive", "env"] }
 serde_json.workspace = true
 tokio = { workspace = true, features = ["signal"] }

@@ -85,11 +85,11 @@ async fn execute(
             Payload::File(path) => {
                 let own = client.local_device().await?.uin;
                 let peer = select_peer(&client.devices().await?, own, send.peer)?;
-                let ip = match send.ip {
-                    Some(ip) => net::validate_ip(ip)?,
-                    None => net::local_ip()?,
+                let ips = match send.ip {
+                    Some(ip) => vec![net::validate_ip(ip)?],
+                    None => net::lan_ips()?,
                 };
-                commands::send_file(client, &path, peer, ip, limit, json).await
+                commands::send_file(client, &path, peer, &ips, limit, json).await
             }
         },
         Command::Recv(recv) if recv.file => commands::recv_files(client, state, recv, json).await,

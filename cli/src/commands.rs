@@ -129,11 +129,11 @@ pub async fn send_file(
     client: &Client,
     path: &Path,
     peer: u64,
-    ip: std::net::IpAddr,
+    ips: &[std::net::IpAddr],
     limit: Duration,
     json: bool,
 ) -> Result<()> {
-    let mut transfer = client.send_file(peer, path, &[ip]).await?;
+    let mut transfer = client.send_file(peer, path, ips).await?;
     eprintln!("File invitation sent; waiting for device {peer} to accept...");
     let accepted = timeout(limit, async {
         loop {
@@ -253,10 +253,11 @@ fn remember(path: &Path, code: &str) {
 
 /// Waits for a file invitation from a paired device, accepts it, and saves the files.
 pub async fn recv_files(client: &Client, state: &Path, args: &RecvArgs, json: bool) -> Result<()> {
-    let ip = match args.ip {
-        Some(ip) => net::validate_ip(ip)?,
-        None => net::local_ip()?,
+    let ips = match args.ip {
+        Some(ip) => vec![net::validate_ip(ip)?],
+        None => net::lan_ips()?,
     };
+    let shown: Vec<String> = ips.iter().map(ToString::to_string).collect();
     let staging = state.join("incoming");
     private_dir(&staging)?;
     // The server keeps an invitation queryable after it was used; skip the last handled one.
@@ -265,7 +266,10 @@ pub async fn recv_files(client: &Client, state: &Path, args: &RecvArgs, json: bo
     let deadline = (args.wait > 0).then(|| Instant::now() + Duration::from_secs(args.wait));
     let ctrl_c = tokio::signal::ctrl_c();
     tokio::pin!(ctrl_c);
-    eprintln!("Waiting for a file invitation on {ip} (Ctrl-C to stop)...");
+    eprintln!(
+        "Waiting for a file invitation on {} (Ctrl-C to stop)...",
+        shown.join(", ")
+    );
     let mut failures = 0;
     loop {
         let invite = match client.pending_file_invite().await {
@@ -302,7 +306,7 @@ pub async fn recv_files(client: &Client, state: &Path, args: &RecvArgs, json: bo
         );
         let options = FileReceiveOptions {
             bind_address: "0.0.0.0:0".parse()?,
-            advertised_ips: vec![ip],
+            advertised_ips: ips.clone(),
             download_dir: staging.clone(),
         };
         let mut receiver = match client
