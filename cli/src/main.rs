@@ -44,7 +44,7 @@ async fn run() -> Result<()> {
     .await
     .map_err(|_| "timed out opening the client")??;
 
-    let result = execute(&client, &cli.command, payload, &state, limit).await;
+    let result = execute(&client, &cli.command, payload, &state, limit, cli.json).await;
     // Release SDK resources on success, error and timeout alike.
     let shutdown = client.shutdown().await;
     result?;
@@ -58,13 +58,14 @@ async fn execute(
     payload: Option<Payload>,
     state: &std::path::Path,
     limit: Duration,
+    json: bool,
 ) -> Result<()> {
     match command {
-        Command::Pair { code } => commands::pair(client, code).await,
-        Command::Devices => commands::devices(client).await,
+        Command::Pair { code } => commands::pair(client, code, json).await,
+        Command::Devices => commands::devices(client, json).await,
         Command::Send(send) => match payload.expect("classified before opening") {
-            Payload::Text(text) => commands::send_text(client, &text, limit).await,
-            Payload::Image(path) => commands::send_image(client, &path, limit).await,
+            Payload::Text(text) => commands::send_text(client, &text, limit, json).await,
+            Payload::Image(path) => commands::send_image(client, &path, limit, json).await,
             Payload::File(path) => {
                 let own = client.local_device().await?.uin;
                 let peer = select_peer(&client.devices().await?, own, send.peer)?;
@@ -72,11 +73,11 @@ async fn execute(
                     Some(ip) => net::validate_ip(ip)?,
                     None => net::local_ip()?,
                 };
-                commands::send_file(client, &path, peer, ip, limit).await
+                commands::send_file(client, &path, peer, ip, limit, json).await
             }
         },
-        Command::Recv(recv) if recv.file => commands::recv_files(client, state, recv).await,
-        Command::Recv(recv) => commands::recv_clipboard(client, &recv.output, limit).await,
+        Command::Recv(recv) if recv.file => commands::recv_files(client, state, recv, json).await,
+        Command::Recv(recv) => commands::recv_clipboard(client, &recv.output, limit, json).await,
     }
 }
 

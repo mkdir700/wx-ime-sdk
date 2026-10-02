@@ -44,6 +44,7 @@ wxc [--state DIR] [--name NAME] [--timeout SECONDS] <COMMAND>
   图片、GIF、WebP 按普通文件发送。
 - 否则按文本发送。若参数形如路径（`./x`、`../x`、`/x`、`~/x`）但文件不存在，则报错，避免
   把写错的路径当文本发出去。
+- 在 Unix 上，若字面路径不存在，会再尝试去掉反斜杠转义（如终端拖入文件得到的 `a\ b.png`）。
 - `--text` 强制按文本发送，即使存在同名文件。
 - 发送文件需要确定目标：用 `--peer UIN` 指定；若恰好只有一个已配对设备支持文件传输，则自动
   选中。`--ip IP` 可覆盖自动探测的局域网地址。
@@ -52,8 +53,9 @@ wxc [--state DIR] [--name NAME] [--timeout SECONDS] <COMMAND>
 （默认 300，`0` 表示一直等到 Ctrl-C）；`--ip IP` 覆盖对外公布的局域网地址。文件先放在状态
 目录内的私有暂存区，再移动到 `-o`，不会覆盖已有文件，重名时变成 `name (1).ext`。
 
-输出：`pair`、`devices`、`send`、`recv -f` 在 stdout 输出 JSON；进度和诊断信息写 stderr；
-失败时退出码为 1。
+输出：默认输出便于阅读的文本；加全局选项 `--json` 时，`pair`、`devices`、`send`、`recv`
+（图片）和 `recv -f` 改为在 stdout 输出 JSON。`recv` 收到的文本始终原样输出。进度和诊断信息写
+stderr；失败时退出码为 1。
 
 ### 状态目录
 

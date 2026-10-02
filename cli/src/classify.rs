@@ -52,6 +52,26 @@ fn looks_like_path(value: &str) -> bool {
         || value.starts_with("..\\")
 }
 
+/// Terminals paste drag-and-dropped paths as `a\ b.png`; inside quotes those backslashes
+/// are literal. When the literal path is missing, retry with the escapes removed (Unix only).
+fn resolve(input: &str) -> PathBuf {
+    let literal = Path::new(input);
+    if cfg!(unix) && input.contains('\\') && !literal.exists() {
+        let mut unescaped = String::with_capacity(input.len());
+        let mut chars = input.chars();
+        while let Some(c) = chars.next() {
+            match (c, c == '\\') {
+                (_, true) => unescaped.extend(chars.next()),
+                _ => unescaped.push(c),
+            }
+        }
+        if Path::new(&unescaped).exists() {
+            return PathBuf::from(unescaped);
+        }
+    }
+    literal.to_owned()
+}
+
 /// `read_stdin` is only called for the `-` argument.
 pub fn classify(
     input: &str,
@@ -66,7 +86,8 @@ pub fn classify(
     if force_text {
         return Ok(Payload::Text(input.to_owned()));
     }
-    let path = Path::new(input);
+    let resolved = resolve(input);
+    let path = resolved.as_path();
     match fs::metadata(path) {
         Ok(meta) if meta.is_file() => {
             if meta.len() == 0 {
@@ -165,6 +186,20 @@ mod tests {
             classify(&pdf, false, no_stdin),
             Ok(Payload::File(_))
         ));
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn backslash_escaped_paths_are_unescaped() {
+        let dir = tempfile::tempdir().unwrap();
+        let real = write(dir.path(), "Image Sep 26, 01.png", PNG);
+        let escaped = real.replace(' ', "\\ ");
+        assert_eq!(
+            classify(&escaped, false, no_stdin),
+            Ok(Payload::Image(real.clone().into()))
+        );
+        let missing = format!("{}/no\\ such.png", dir.path().display());
+        assert!(classify(&missing, false, no_stdin).is_err());
     }
 
     #[test]

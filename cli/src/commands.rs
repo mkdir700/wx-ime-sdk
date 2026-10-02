@@ -19,12 +19,21 @@ use wx_ime_sdk::{
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
+/// `--json` prints the machine-readable value; otherwise the human sentence.
+fn report(json: bool, value: serde_json::Value, human: String) {
+    if json {
+        println!("{value}");
+    } else {
+        println!("{human}");
+    }
+}
+
 const OUTCOME_UNKNOWN: &str =
     "operation timed out; delivery may be unknown. Check the peer before retrying";
 const POLL_INTERVAL: Duration = Duration::from_secs(2);
 const MAX_POLL_FAILURES: u32 = 5;
 
-pub async fn pair(client: &Client, code: &str) -> Result<()> {
+pub async fn pair(client: &Client, code: &str, json: bool) -> Result<()> {
     let code = PairingCode::parse(code)?;
     let local = client.local_device().await?;
     eprintln!("Waiting for the official WeType to confirm pairing...");
@@ -35,40 +44,70 @@ pub async fn pair(client: &Client, code: &str) -> Result<()> {
         let _ = pairing.cancel().await;
     }
     let (group, peer) = result?;
-    println!(
-        "{}",
-        json!({"status": "paired", "local": local, "group": group, "peer": peer})
+    let human = format!(
+        "Paired with {}.\nThis device: {} (Uin {})",
+        peer.name, local.name, local.uin
+    );
+    report(
+        json,
+        json!({"status": "paired", "local": local, "group": group, "peer": peer}),
+        human,
     );
     Ok(())
 }
 
-pub async fn devices(client: &Client) -> Result<()> {
+pub async fn devices(client: &Client, json: bool) -> Result<()> {
     let local = client.local_device().await?;
-    println!(
-        "{}",
-        json!({"local": local, "group": client.group().await?})
-    );
+    let group = client.group().await?;
+    let mut human = format!("This device: {} (Uin {})", local.name, local.uin);
+    match &group {
+        Some(group) => {
+            human.push_str(
+                "
+Paired devices:",
+            );
+            for device in group.devices.iter().filter(|d| d.uin != local.uin) {
+                let files = if device.supports_file_transfer {
+                    ""
+                } else {
+                    " [no file transfer]"
+                };
+                human.push_str(&format!(
+                    "
+  {}  {}{files}",
+                    device.uin, device.name
+                ));
+            }
+        }
+        None => human.push_str(
+            "
+Not paired. Run `wxc pair CODE`.",
+        ),
+    }
+    report(json, json!({"local": local, "group": group}), human);
     Ok(())
 }
 
-pub async fn send_text(client: &Client, text: &str, limit: Duration) -> Result<()> {
+pub async fn send_text(client: &Client, text: &str, limit: Duration, json: bool) -> Result<()> {
     let receipt = timeout(limit, client.send_text(text))
         .await
         .map_err(|_| OUTCOME_UNKNOWN)??;
-    println!(
-        "{}",
-        json!({"status": "server_accepted", "kind": "text", "receipt": receipt})
+    report(
+        json,
+        json!({"status": "server_accepted", "kind": "text", "receipt": receipt}),
+        "Text sent (accepted by the server).".into(),
     );
     Ok(())
 }
 
-pub async fn send_image(client: &Client, path: &Path, limit: Duration) -> Result<()> {
+pub async fn send_image(client: &Client, path: &Path, limit: Duration, json: bool) -> Result<()> {
     let receipt = timeout(limit, client.send_image(path))
         .await
         .map_err(|_| OUTCOME_UNKNOWN)??;
-    println!(
-        "{}",
-        json!({"status": "server_accepted", "kind": "image", "receipt": receipt})
+    report(
+        json,
+        json!({"status": "server_accepted", "kind": "image", "receipt": receipt}),
+        "Image sent (accepted by the server).".into(),
     );
     Ok(())
 }
@@ -80,6 +119,7 @@ pub async fn send_file(
     peer: u64,
     ip: std::net::IpAddr,
     limit: Duration,
+    json: bool,
 ) -> Result<()> {
     let mut transfer = client.send_file(peer, path, &[ip]).await?;
     eprintln!("File invitation sent; waiting for device {peer} to accept...");
@@ -116,16 +156,26 @@ pub async fn send_file(
         eprintln!();
     }
     let receipt = transfer.wait().await?;
-    println!(
-        "{}",
+    report(
+        json,
         json!({"status": "range_acknowledged", "kind": "file", "peer_uin": peer,
-               "receipt": {"id": receipt.id, "bytes": receipt.bytes}})
+               "receipt": {"id": receipt.id, "bytes": receipt.bytes}}),
+        format!(
+            "Sent {} to device {peer} ({} bytes).",
+            path.display(),
+            receipt.bytes
+        ),
     );
     Ok(())
 }
 
 /// One-shot clipboard pull. Text goes to stdout; images are saved into `output`.
-pub async fn recv_clipboard(client: &Client, output: &Path, limit: Duration) -> Result<()> {
+pub async fn recv_clipboard(
+    client: &Client,
+    output: &Path,
+    limit: Duration,
+    json: bool,
+) -> Result<()> {
     let Some(received) = timeout(limit, client.poll_clipboard_once())
         .await
         .map_err(|_| "timed out polling the clipboard")??
@@ -148,9 +198,14 @@ pub async fn recv_clipboard(client: &Client, output: &Path, limit: Duration) -> 
             let extension = sniff_image(&bytes).map_or("bin", |kind| kind.extension());
             let name = format!("wxc-{}.{extension}", received.id.version());
             let saved = write_unique(output, &name, &bytes)?;
-            println!(
-                "{}",
-                json!({"status": "saved", "kind": "image", "path": saved, "bytes": bytes.len()})
+            report(
+                json,
+                json!({"status": "saved", "kind": "image", "path": saved, "bytes": bytes.len()}),
+                format!(
+                    "Saved image to {} ({} bytes).",
+                    saved.display(),
+                    bytes.len()
+                ),
             );
         }
     }
@@ -163,7 +218,7 @@ fn remember(path: &Path, code: &str) {
 }
 
 /// Waits for a file invitation from a paired device, accepts it, and saves the files.
-pub async fn recv_files(client: &Client, state: &Path, args: &RecvArgs) -> Result<()> {
+pub async fn recv_files(client: &Client, state: &Path, args: &RecvArgs, json: bool) -> Result<()> {
     let ip = match args.ip {
         Some(ip) => net::validate_ip(ip)?,
         None => net::local_ip()?,
@@ -247,10 +302,11 @@ pub async fn recv_files(client: &Client, state: &Path, args: &RecvArgs) -> Resul
                     if let Some(dir) = file.path.parent() {
                         let _ = std::fs::remove_dir(dir);
                     }
-                    println!(
-                        "{}",
+                    report(
+                        json,
                         json!({"status": "received", "kind": "file", "path": saved,
-                               "bytes": file.bytes, "from_uin": invite.sender_uin})
+                               "bytes": file.bytes, "from_uin": invite.sender_uin}),
+                        format!("Received {} ({} bytes).", saved.display(), file.bytes),
                     );
                     received += 1;
                 }

@@ -29,6 +29,9 @@ pub struct Cli {
         value_name = "SECONDS"
     )]
     pub timeout: u64,
+    /// Print machine-readable JSON instead of plain text
+    #[arg(long, global = true)]
+    pub json: bool,
     #[command(subcommand)]
     pub command: Command,
 }
