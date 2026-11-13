@@ -143,3 +143,11 @@ wxc pair 123456 --reset
 2. 邀请的 `send_time` 单位未核实，因此不按时间判断过期，而是记住上一个处理过的邀请码
    （`<state>/last-invite`）并跳过。
 3. 加入邀请后，`recv -f` 会一直等待对端连接；若官方端已取消，请用 Ctrl-C 结束。
+
+## Go module
+
+The [`go/`](go/README.md) directory provides an independently importable Go SDK
+at `github.com/mkdir700/wx-ime-sdk/go`. It ports device identity, pairing,
+clipboard exchange, and authenticated LAN file transfer. It requires Go 1.24+,
+cgo, and OpenSSL. See the module README for service integration, examples, and
+reproducible end-to-end verification.
