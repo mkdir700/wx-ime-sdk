@@ -7,7 +7,7 @@ publish = false
 [workspace]
 
 [dependencies]
-wx-ime-protocol = { path = "../../../crates/wx-ime-protocol" }
+wx-ime-protocol = { path = "../../../rust/crates/wx-ime-protocol" }
 hex = "0.4"
 prost = "0.14"
 serde_json = "1"
