@@ -1,0 +1,23 @@
+{
+  "checks": [
+    "pairing-leading-zero-confirmed-membership",
+    "exclusive-identity-and-pairing",
+    "inline-and-cos-text",
+    "durable-receipt-restart-and-ack",
+    "encrypted-image-integrity-and-cache-cleanup",
+    "publication-outcome-unknown-no-retry",
+    "mutual-tls-grpc-multiblock-file-and-range-acks",
+    "idle-receiver-controls-and-bounded-queue",
+    "untrusted-tls-peer-rejected",
+    "corrupt-file-cleanup",
+    "pairing-remote-cancellation",
+    "file-cancellation",
+    "shutdown-and-closed-client"
+  ],
+  "file_blake3": "b3d4a9a20caaff0d775c4aa7497fee322e43c65d1884ad4914f2dc2c7eb5278e",
+  "file_bytes": 3150000,
+  "file_sha256": "4ea24678db1af1f14046b81fd9f880a77532d43026e5398cd5e9a5ccfa67e5f9",
+  "official_device_verified": false,
+  "scenario": "local-http-and-mutual-tls-grpc",
+  "schema": 1
+}

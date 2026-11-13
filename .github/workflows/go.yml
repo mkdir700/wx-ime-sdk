@@ -1,0 +1,51 @@
+name: Verify Go SDK
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        required: true
+permissions:
+  contents: read
+jobs:
+  go-sdk:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: go
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+          cache-dependency-path: go/go.sum
+      - name: Install OpenSSL on Linux
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev
+      - name: Locate OpenSSL on macOS
+        if: runner.os == 'macOS'
+        run: echo "PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig" >> "$GITHUB_ENV"
+      - name: Check formatting
+        run: test -z "$(gofmt -l .)"
+      - run: go vet ./...
+      - name: Run end-to-end scenarios with race detection
+        env:
+          WXIME_E2E_ARTIFACT: artifacts/e2e.json
+        run: go test -race -count=1 -v ./...
+      - name: Verify repeatable evidence
+        run: git diff --exit-code -- artifacts/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: go-e2e-${{ matrix.os }}
+          path: go/artifacts/*.json
+          if-no-files-found: error

@@ -1,0 +1,13 @@
+{
+  "checks": [
+    "rust-pkcs8-identity",
+    "rust-bootstrap-ecdh-response",
+    "rust-ecdh-session-key",
+    "rust-encrypted-snappy-protobuf-clipboard",
+    "durable-acknowledgment-and-reopen"
+  ],
+  "fixture_sha256": "f254bea1db889935372978514f20ba3a738c5415cbe44d96b5daad6504fc780c",
+  "official_device_verified": false,
+  "scenario": "rust-fixture-go-client",
+  "schema": 1
+}

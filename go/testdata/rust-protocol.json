@@ -1,0 +1,17 @@
+{
+  "ecdh": "a4960bed21492d5eb5b5713b9556515b67b63ea71e3abff96ccc58a591033db56074c47c5e3390a104b42cf2e95a9c275522a37777d0dc0926af88799b14262885492c15b9ad036f819721bf1b05f953",
+  "group": "1b95c441332937a99c8cefd5ff0948441296f6ddf0229c621150cef39bfd2a9b94d0dade1a273aea2af02feb4292022174c070323e969054e57c136b305cae39136e18e6f5bf4e6da28d504fdd41b185bf10de787509d73df1036b848093c6ef597c293b771a80a9598b2f712912c358",
+  "identity": {
+    "consumed": {},
+    "device_code": "ANDUniClipboard;rese000000000000A64E7AFDE1695A1C7AAEE93EC9D6E05F",
+    "device_name": "Rust fixture",
+    "format": 1,
+    "pending": null,
+    "private_pem": "",
+    "server_key": "",
+    "uin": 101,
+    "uuid": "00000000-0000-4000-8000-000000000001"
+  },
+  "public_key_sha256": "fd25622f1ac5880f055e5dc06260bef2827db7826b7909345e2c96f0f5a8f6d4",
+  "timestamp": "0880d095ffbc31"
+}
