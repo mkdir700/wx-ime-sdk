@@ -2,8 +2,8 @@
 
 The Rust workspace version is the single version source. Supported versions are
 `X.Y.Z`, `X.Y.Z-alpha.N`, `X.Y.Z-beta.N`, and `X.Y.Z-rc.N`. Stable publishes to
-`latest`; prereleases publish to their channel. Update Cargo.toml (including local
-crate dependency versions) and Cargo.lock together before tagging.
+`latest`; prereleases publish to their channel. Update rust/Cargo.toml (including local
+crate dependency versions) and rust/Cargo.lock together before tagging.
 
 This follows Desktop's CLI distribution layout: one launcher and five exact-version
 optional platform packages, with the platform packages published first. It does
@@ -47,8 +47,8 @@ retain the original release artifacts or issue a new version; never overwrite.
 ## Local packaging verification
 
 ```sh
-cargo build --locked -p wxc --features vendored-openssl
-node scripts/npm-package.mjs build darwin-arm64 target/debug/wxc
+cargo build --manifest-path rust/Cargo.toml --locked -p wxc --features vendored-openssl
+node scripts/npm-package.mjs build darwin-arm64 rust/target/debug/wxc
 node scripts/npm-smoke.mjs
 ```
 

@@ -3,11 +3,13 @@
 微信输入法（WeType）跨设备剪贴板的独立 Rust 客户端：以全新的设备身份与官方输入法配对，
 然后收发文本、图片和文件。
 
-| 路径 | 用途 |
+| Path | Purpose |
 |---|---|
-| `crates/wx-ime-protocol` | 包编解码、控制通道加密、配对码、protobuf 线格式消息 |
-| `crates/wx-ime-sdk` | 异步客户端：身份、配对、剪贴板、局域网文件传输 |
-| `cli/` | 基于 SDK 的命令行工具 `wxc` |
+| `rust/crates/wx-ime-protocol` | Packet codecs, control-channel encryption, pairing codes, and protobuf messages |
+| `rust/crates/wx-ime-sdk` | Async Rust SDK for identity, pairing, clipboard exchange, and LAN file transfer |
+| `rust/cli/` | Rust SDK command-line client `wxc` |
+| `go/` | Independently importable Go SDK |
+| `npm/` | CLI distribution packages |
 
 SDK 不会读写宿主机剪贴板。
 
@@ -50,15 +52,21 @@ npm exec --package=@mkdir700/wxc -- wxc --help
 预编译包内置 OpenSSL，不需要 Rust 工具链；保持 npm optional dependencies 启用。
 这安装的是 CLI，不是 JavaScript SDK。构建验证与首次发布配置见 [发布说明](npm/PUBLISHING.md)。
 
-## 构建
+## Build
 
-需要 Rust 1.92+、`protoc`、带 secp128r1 曲线的 OpenSSL 开发文件和 C 工具链。启用
-`vendored-openssl` 特性可改为从源码编译 OpenSSL。
+The Rust workspace lives in `rust/`. It requires Rust 1.92+, `protoc`, OpenSSL
+headers with secp128r1 support, and a C toolchain. Enable `vendored-openssl`
+to build OpenSSL from source.
+
+Run from the repository root:
 
 ```sh
-cargo build --release -p wxc        # 产物：target/release/wxc
-cargo test --workspace
+cargo build --manifest-path rust/Cargo.toml --release -p wxc
+# Output: rust/target/release/wxc
+cargo test --manifest-path rust/Cargo.toml --workspace
 ```
+
+Alternatively, run Cargo commands from `rust/` without `--manifest-path`.
 
 ## `wxc`
 

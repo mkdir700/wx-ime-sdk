@@ -46,6 +46,8 @@ jobs:
           components: rustfmt
           targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust -> target
       - uses: arduino/setup-protoc@v3
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
@@ -58,15 +60,15 @@ jobs:
           "C:\Strawberry\perl\bin" >> $env:GITHUB_PATH
       - uses: ilammy/msvc-dev-cmd@v1
         if: runner.os == 'Windows'
-      - run: cargo fmt --all --check
-      - run: cargo test --workspace --locked --features wxc/vendored-openssl
-      - run: cargo build --release --locked -p wxc --features vendored-openssl --target ${{ matrix.target }}
+      - run: cargo fmt --manifest-path rust/Cargo.toml --all --check
+      - run: cargo test --manifest-path rust/Cargo.toml --workspace --locked --features wxc/vendored-openssl
+      - run: cargo build --manifest-path rust/Cargo.toml --release --locked -p wxc --features vendored-openssl --target ${{ matrix.target }}
       - name: Assemble platform and launcher packages
         shell: bash
         run: |
           EXE=wxc
           if [ "$RUNNER_OS" = Windows ]; then EXE=wxc.exe; fi
-          node scripts/npm-package.mjs build '${{ matrix.platform }}' 'target/${{ matrix.target }}/release/'"$EXE"
+          node scripts/npm-package.mjs build '${{ matrix.platform }}' 'rust/target/${{ matrix.target }}/release/'"$EXE"
       - name: Install tarballs and exercise CLI
         run: node scripts/npm-smoke.mjs
       - name: Stage verified tarballs

@@ -8,7 +8,7 @@ export const platforms = {
   'linux-x64': 'x86_64-unknown-linux-gnu',
   'win32-x64': 'x86_64-pc-windows-msvc',
 };
-export const version = readFileSync(new URL('../Cargo.toml', import.meta.url), 'utf8')
+export const version = readFileSync(new URL('../rust/Cargo.toml', import.meta.url), 'utf8')
   .match(/^version = "([^"]+)"/m)[1];
 if (!/^\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)\.\d+)?$/.test(version)) throw new Error('Unsupported release version');
 export const distTag = version.includes('-') ? version.split('-')[1].split('.')[0] : 'latest';
