@@ -164,6 +164,18 @@ func (c *Client) publish(ctx context.Context, group uint64, kind uint32, data []
 	return SendReceipt{group, response.GetVersion(), trace}, nil
 }
 func (c *Client) SendText(ctx context.Context, text string) (SendReceipt, error) {
+	return c.sendText(ctx, 0, text)
+}
+
+// SendTextToGroup publishes only to the explicitly authorized group.
+func (c *Client) SendTextToGroup(ctx context.Context, group uint64, text string) (SendReceipt, error) {
+	if group == 0 {
+		return SendReceipt{}, invalid("missing group ID")
+	}
+	return c.sendText(ctx, group, text)
+}
+
+func (c *Client) sendText(ctx context.Context, expected uint64, text string) (SendReceipt, error) {
 	if !validText(text, p.MaxText) {
 		return SendReceipt{}, invalid("text must be 1..1048576 UTF-8 bytes")
 	}
@@ -172,6 +184,9 @@ func (c *Client) SendText(ctx context.Context, text string) (SendReceipt, error)
 	group, err := c.pairedGroup(ctx)
 	if err != nil {
 		return SendReceipt{}, err
+	}
+	if expected != 0 && group != expected {
+		return SendReceipt{}, ErrGroupChanged
 	}
 	if len(text) <= p.InlineText {
 		return c.publish(ctx, group, 1, []byte(text))
@@ -183,18 +198,33 @@ func (c *Client) SendText(ctx context.Context, text string) (SendReceipt, error)
 	return c.publish(ctx, group, 2, []byte(url))
 }
 func (c *Client) SendImage(ctx context.Context, path string) (SendReceipt, error) {
-	ctx, done := c.operation(ctx)
-	defer done()
 	data, err := readLimited(path, p.MaxImage)
 	if err != nil {
 		return SendReceipt{}, err
 	}
-	if len(data) == 0 {
-		return SendReceipt{}, invalid("empty image")
+	return c.sendImage(ctx, 0, data)
+}
+
+// SendImageToGroup publishes an encoded image only to the authorized group.
+func (c *Client) SendImageToGroup(ctx context.Context, group uint64, data []byte) (SendReceipt, error) {
+	if group == 0 {
+		return SendReceipt{}, invalid("missing group ID")
+	}
+	return c.sendImage(ctx, group, data)
+}
+
+func (c *Client) sendImage(ctx context.Context, expected uint64, data []byte) (SendReceipt, error) {
+	ctx, done := c.operation(ctx)
+	defer done()
+	if len(data) == 0 || len(data) > p.MaxImage {
+		return SendReceipt{}, invalid("image size")
 	}
 	group, err := c.pairedGroup(ctx)
 	if err != nil {
 		return SendReceipt{}, err
+	}
+	if expected != 0 && group != expected {
+		return SendReceipt{}, ErrGroupChanged
 	}
 	key := make([]byte, 16)
 	defer clear(key)
@@ -231,12 +261,18 @@ func cloneReceipt(r *ReceivedClipboard) *ReceivedClipboard {
 	}
 	return &copy
 }
-func (c *Client) pollStep(ctx context.Context) (*Event, error) {
+func (c *Client) pollStep(ctx context.Context, group uint64) (*Event, error) {
 	if err := c.lock(ctx); err != nil {
 		return nil, err
 	}
 	s := c.session
 	if pending := s.store.state.Pending; pending != nil {
+		if group != 0 && pending.ID.Group != group {
+			id := pending.ID
+			c.unlock()
+			// A receipt from an earlier group cannot enter the newly authorized group.
+			return nil, c.Acknowledge(ctx, id)
+		}
 		if c.emitted != nil && *c.emitted == pending.ID {
 			c.unlock()
 			return nil, nil
@@ -265,6 +301,10 @@ func (c *Client) pollStep(ctx context.Context) (*Event, error) {
 	if err != nil {
 		c.unlock()
 		return nil, err
+	}
+	if group != 0 && g.ID != group {
+		c.unlock()
+		return nil, ErrGroupChanged
 	}
 	if !reflect.DeepEqual(c.recvGroup, g) {
 		saved := *g
@@ -379,7 +419,7 @@ func (c *Client) NextEvent(ctx context.Context) (Event, error) {
 	}
 	defer func() { <-c.receiveGate }()
 	for {
-		event, err := c.pollStep(ctx)
+		event, err := c.pollStep(ctx, 0)
 		if err != nil {
 			return Event{}, err
 		}
@@ -395,6 +435,18 @@ func (c *Client) NextEvent(ctx context.Context) (Event, error) {
 // PollClipboardOnce returns a pending receipt once per process emission, or nil
 // if no new value exists. Restarting replays an unacknowledged durable receipt.
 func (c *Client) PollClipboardOnce(ctx context.Context) (*ReceivedClipboard, error) {
+	return c.pollClipboardOnce(ctx, 0)
+}
+
+// PollClipboardOnceFromGroup receives only from the authorized group.
+func (c *Client) PollClipboardOnceFromGroup(ctx context.Context, group uint64) (*ReceivedClipboard, error) {
+	if group == 0 {
+		return nil, invalid("missing group ID")
+	}
+	return c.pollClipboardOnce(ctx, group)
+}
+
+func (c *Client) pollClipboardOnce(ctx context.Context, group uint64) (*ReceivedClipboard, error) {
 	ctx, done := c.operation(ctx)
 	defer done()
 	if err := acquire(ctx, c.life, c.receiveGate); err != nil {
@@ -402,7 +454,7 @@ func (c *Client) PollClipboardOnce(ctx context.Context) (*ReceivedClipboard, err
 	}
 	defer func() { <-c.receiveGate }()
 	for {
-		event, err := c.pollStep(ctx)
+		event, err := c.pollStep(ctx, group)
 		if err != nil || event == nil {
 			return nil, err
 		}

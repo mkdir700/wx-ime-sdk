@@ -11,6 +11,7 @@ var (
 	ErrPairingInUse         = errors.New("wxime: another pairing session is active")
 	ErrConfirmationRequired = errors.New("wxime: pairing requires explicit issuer confirmation")
 	ErrCodeUnavailable      = errors.New("wxime: pairing code is unavailable")
+	ErrGroupChanged         = errors.New("wxime: current group differs from the authorized group")
 	ErrNotPaired            = errors.New("wxime: device is not paired")
 	ErrOutcomeUnknown       = errors.New("wxime: clipboard publication outcome is unknown; do not retry automatically")
 	ErrCanceled             = errors.New("wxime: operation canceled")

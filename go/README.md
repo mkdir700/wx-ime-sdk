@@ -113,6 +113,11 @@ go run ./examples/service -state /private/path/wetype -name 'My service' \
   -text 'Another value'
 ```
 
+Use `SendTextToGroup` and `SendImageToGroup` when the host authorizes
+a specific group. They reject a mismatched current group before uploading
+content. The SDK checks the same group again before publication.
+Use `PollClipboardOnceFromGroup` to admit incoming content only from that group.
+
 ## Clipboard receive and acknowledgment
 
 - `SendText`: 1 MiB maximum UTF-8; up to 256 KiB inline, larger text through COS.

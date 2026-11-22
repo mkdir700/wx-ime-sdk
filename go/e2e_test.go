@@ -315,11 +315,24 @@ func TestServiceE2E(t *testing.T) {
 	var checks []string
 	checks = append(checks, "pairing-leading-zero-confirmed-membership", "exclusive-identity-and-pairing")
 	for _, text := range []string{"hello 世界", strings.Repeat("x", (256<<10)+1)} {
-		receipt, e := a.SendText(ctx, text)
+		group, e := a.Group(ctx)
+		if e != nil || group == nil {
+			t.Fatal("missing paired group", e)
+		}
+		if _, e = a.SendTextToGroup(ctx, group.ID+1, text); !errors.Is(e, ErrGroupChanged) {
+			t.Fatal("text accepted for another group", e)
+		}
+		if got, e := b.PollClipboardOnce(ctx); got != nil || e != nil {
+			t.Fatal("mismatched group sent clipboard data", e)
+		}
+		receipt, e := a.SendTextToGroup(ctx, group.ID, text)
 		if e != nil || receipt.Version == 0 {
 			t.Fatalf("send: %v", e)
 		}
-		got, e := b.PollClipboardOnce(ctx)
+		if got, e := b.PollClipboardOnceFromGroup(ctx, group.ID+1); got != nil || !errors.Is(e, ErrGroupChanged) {
+			t.Fatal("mismatched group exposed incoming clipboard data", e)
+		}
+		got, e := b.PollClipboardOnceFromGroup(ctx, group.ID)
 		if e != nil || got == nil || got.Content.Text == nil || *got.Content.Text != text {
 			t.Fatalf("receive: %v", e)
 		}
@@ -347,9 +360,17 @@ func TestServiceE2E(t *testing.T) {
 	}
 	checks = append(checks, "inline-and-cos-text", "durable-receipt-restart-and-ack")
 	image := append([]byte("\x89PNG\r\n\x1a\n"), bytes.Repeat([]byte{1, 2, 3, 4}, 3000)...)
-	path := filepath.Join(root, "image.png")
-	os.WriteFile(path, image, 0600)
-	if _, err = a.SendImage(ctx, path); err != nil {
+	group, err := a.Group(ctx)
+	if err != nil || group == nil {
+		t.Fatal("missing paired group", err)
+	}
+	if _, err = a.SendImageToGroup(ctx, group.ID+1, image); !errors.Is(err, ErrGroupChanged) {
+		t.Fatal("image accepted for another group", err)
+	}
+	if got, e := b.PollClipboardOnce(ctx); got != nil || e != nil {
+		t.Fatal("mismatched group sent clipboard data", e)
+	}
+	if _, err = a.SendImageToGroup(ctx, group.ID, image); err != nil {
 		t.Fatal(err)
 	}
 	got, err := b.PollClipboardOnce(ctx)
@@ -366,7 +387,7 @@ func TestServiceE2E(t *testing.T) {
 	if _, err = os.Stat(got.Content.Image.Path); !os.IsNotExist(err) {
 		t.Fatal("image cache not reclaimed")
 	}
-	checks = append(checks, "encrypted-image-integrity-and-cache-cleanup")
+	checks = append(checks, "encrypted-image-integrity-and-cache-cleanup", "group-pinned-text-and-image")
 	s.mu.Lock()
 	s.brokenPublish = true
 	s.mu.Unlock()
